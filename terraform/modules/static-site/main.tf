@@ -78,7 +78,7 @@ resource "aws_cloudfront_function" "rewrite" {
   runtime = "cloudfront-js-2.0"
   publish = true
 
-  code = var.redirect_from != "" ? <<-JS
+  code = <<-JS
     function handler(event) {
       var request = event.request;
       var host = request.headers.host.value;
@@ -91,20 +91,6 @@ resource "aws_cloudfront_function" "rewrite" {
           headers: { location: { value: 'https://${var.domain_name}' + uri } }
         };
       }
-
-      if (uri.endsWith('/')) {
-        request.uri += 'index.html';
-      } else if (!uri.includes('.')) {
-        request.uri += '/index.html';
-      }
-
-      return request;
-    }
-  JS
-  : <<-JS
-    function handler(event) {
-      var request = event.request;
-      var uri = request.uri;
 
       if (uri.endsWith('/')) {
         request.uri += 'index.html';
