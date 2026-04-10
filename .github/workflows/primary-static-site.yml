@@ -1,0 +1,77 @@
+name: Primary Static Site
+
+on:
+  workflow_call:
+    inputs:
+      node-version:
+        description: "Node.js version"
+        required: false
+        type: string
+        default: "22"
+      pnpm-version:
+        description: "pnpm version"
+        required: false
+        type: string
+        default: "10.33.0"
+      build-command:
+        description: "Build command to produce dist/"
+        required: false
+        type: string
+        default: "pnpm build"
+      lint-command:
+        description: "Lint command"
+        required: false
+        type: string
+        default: "pnpm lint"
+      test-command:
+        description: "Test command"
+        required: false
+        type: string
+        default: "pnpm test"
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v5
+        with:
+          version: ${{ inputs.pnpm-version }}
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: ${{ inputs.lint-command }}
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v5
+        with:
+          version: ${{ inputs.pnpm-version }}
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: ${{ inputs.test-command }}
+
+  build:
+    name: Build
+    needs: [lint, test]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v5
+        with:
+          version: ${{ inputs.pnpm-version }}
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: ${{ inputs.build-command }}
