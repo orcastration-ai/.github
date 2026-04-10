@@ -5,7 +5,8 @@ This is the [special `.github` repository](https://docs.github.com/en/organizati
 It serves two purposes:
 
 1. **Organization profile** — `profile/README.md` is displayed on the [org homepage](https://github.com/orcastration-ai).
-2. **Shared workflows** — reusable GitHub Actions workflows in `.github/workflows/` that other repos call via `workflow_call`.
+2. **Member profile** — `profile/README-member.md` is shown to org members on the org homepage.
+3. **Shared workflows** — reusable GitHub Actions workflows in `.github/workflows/` that other repos call via `workflow_call`.
 
 ## Shared Workflows
 
