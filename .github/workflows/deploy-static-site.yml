@@ -67,6 +67,9 @@ jobs:
           role-to-assume: ${{ env.DEV_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
+      - name: Configure Git for private modules
+        run: git config --global url."https://x-access-token:${{ github.token }}@github.com/".insteadOf "https://github.com/"
+
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v4
         with:
@@ -139,6 +142,9 @@ jobs:
         with:
           role-to-assume: ${{ env.PROD_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
+
+      - name: Configure Git for private modules
+        run: git config --global url."https://x-access-token:${{ github.token }}@github.com/".insteadOf "https://github.com/"
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v4
