@@ -26,6 +26,7 @@ on:
 permissions:
   id-token: write
   contents: write
+  packages: read
 
 env:
   AWS_REGION: us-east-1
@@ -54,9 +55,12 @@ jobs:
         with:
           node-version: ${{ inputs.node-version }}
           cache: pnpm
+          registry-url: https://npm.pkg.github.com
 
       - name: Install Dependencies
         run: pnpm install --frozen-lockfile
+        env:
+          NODE_AUTH_TOKEN: ${{ github.token }}
 
       - name: Build
         run: ${{ inputs.build-command }}
@@ -130,9 +134,12 @@ jobs:
         with:
           node-version: ${{ inputs.node-version }}
           cache: pnpm
+          registry-url: https://npm.pkg.github.com
 
       - name: Install Dependencies
         run: pnpm install --frozen-lockfile
+        env:
+          NODE_AUTH_TOKEN: ${{ github.token }}
 
       - name: Build
         run: ${{ inputs.build-command }}
