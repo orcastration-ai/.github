@@ -28,6 +28,20 @@ on:
         required: false
         type: string
         default: "pnpm test"
+      site-id:
+        description: "Site identifier (e.g. wiki, orcastration-ai)"
+        required: false
+        type: string
+        default: ""
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: us-east-1
+  DEV_ACCOUNT_ID: "688365519974"
+  DEV_ROLE_ARN: "arn:aws:iam::688365519974:role/github-actions"
 
 jobs:
   lint:
@@ -75,3 +89,40 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: ${{ inputs.build-command }}
+
+  validate:
+    name: Validate Infrastructure
+    needs: [build]
+    runs-on: ubuntu-latest
+    if: ${{ inputs.site-id != '' }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ env.DEV_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: "~1.5"
+
+      - name: Terraform Format Check
+        working-directory: terraform
+        run: terraform fmt -check -recursive
+
+      - name: Terraform Init
+        working-directory: terraform
+        run: terraform init -backend-config="bucket=orcastration-infra-tfstate-${{ env.DEV_ACCOUNT_ID }}" -backend-config="key=sites/${{ inputs.site-id }}/dev/terraform.tfstate"
+
+      - name: Terraform Validate
+        working-directory: terraform
+        run: terraform validate
+
+      - name: Terraform Plan
+        working-directory: terraform
+        run: terraform plan -var-file="environments/dev.tfvars" -input=false

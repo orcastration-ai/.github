@@ -4,7 +4,7 @@ on:
   workflow_call:
     inputs:
       site-id:
-        description: "Site identifier used in SSM paths (e.g. orcastration-ai)"
+        description: "Site identifier used in state key and SSM paths (e.g. wiki)"
         required: true
         type: string
       node-version:
@@ -23,9 +23,15 @@ on:
         type: string
         default: "pnpm build"
 
+permissions:
+  id-token: write
+  contents: write
+
 env:
   AWS_REGION: us-east-1
+  DEV_ACCOUNT_ID: "688365519974"
   DEV_ROLE_ARN: "arn:aws:iam::688365519974:role/github-actions"
+  PROD_ACCOUNT_ID: "654158184354"
   PROD_ROLE_ARN: "arn:aws:iam::654158184354:role/github-actions"
 
 jobs:
@@ -61,17 +67,32 @@ jobs:
           role-to-assume: ${{ env.DEV_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Read SSM Parameters
-        id: ssm
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: "~1.5"
+          terraform_wrapper: false
+
+      - name: Terraform Init
+        working-directory: terraform
+        run: terraform init -backend-config="bucket=orcastration-infra-tfstate-${{ env.DEV_ACCOUNT_ID }}" -backend-config="key=sites/${{ inputs.site-id }}/dev/terraform.tfstate"
+
+      - name: Terraform Apply
+        working-directory: terraform
+        run: terraform apply -var-file="environments/dev.tfvars" -auto-approve
+
+      - name: Get Terraform Outputs
+        id: tf
+        working-directory: terraform
         run: |
-          echo "bucket=$(aws ssm get-parameter --name '/orca/dev/sites/${{ inputs.site-id }}/bucket-name' --query 'Parameter.Value' --output text)" >> "$GITHUB_OUTPUT"
-          echo "distribution=$(aws ssm get-parameter --name '/orca/dev/sites/${{ inputs.site-id }}/cloudfront-distribution-id' --query 'Parameter.Value' --output text)" >> "$GITHUB_OUTPUT"
+          echo "bucket=$(terraform output -raw bucket_name)" >> "$GITHUB_OUTPUT"
+          echo "distribution=$(terraform output -raw cloudfront_distribution_id)" >> "$GITHUB_OUTPUT"
 
       - name: Deploy to S3
-        run: aws s3 sync dist/ "s3://${{ steps.ssm.outputs.bucket }}" --delete
+        run: aws s3 sync dist/ "s3://${{ steps.tf.outputs.bucket }}" --delete
 
       - name: Invalidate CloudFront Cache
-        run: aws cloudfront create-invalidation --distribution-id "${{ steps.ssm.outputs.distribution }}" --paths "/*"
+        run: aws cloudfront create-invalidation --distribution-id "${{ steps.tf.outputs.distribution }}" --paths "/*"
 
   release:
     name: Create Release
@@ -119,14 +140,29 @@ jobs:
           role-to-assume: ${{ env.PROD_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Read SSM Parameters
-        id: ssm
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: "~1.5"
+          terraform_wrapper: false
+
+      - name: Terraform Init
+        working-directory: terraform
+        run: terraform init -backend-config="bucket=orcastration-infra-tfstate-${{ env.PROD_ACCOUNT_ID }}" -backend-config="key=sites/${{ inputs.site-id }}/prod/terraform.tfstate"
+
+      - name: Terraform Apply
+        working-directory: terraform
+        run: terraform apply -var-file="environments/prod.tfvars" -auto-approve
+
+      - name: Get Terraform Outputs
+        id: tf
+        working-directory: terraform
         run: |
-          echo "bucket=$(aws ssm get-parameter --name '/orca/prod/sites/${{ inputs.site-id }}/bucket-name' --query 'Parameter.Value' --output text)" >> "$GITHUB_OUTPUT"
-          echo "distribution=$(aws ssm get-parameter --name '/orca/prod/sites/${{ inputs.site-id }}/cloudfront-distribution-id' --query 'Parameter.Value' --output text)" >> "$GITHUB_OUTPUT"
+          echo "bucket=$(terraform output -raw bucket_name)" >> "$GITHUB_OUTPUT"
+          echo "distribution=$(terraform output -raw cloudfront_distribution_id)" >> "$GITHUB_OUTPUT"
 
       - name: Deploy to S3
-        run: aws s3 sync dist/ "s3://${{ steps.ssm.outputs.bucket }}" --delete
+        run: aws s3 sync dist/ "s3://${{ steps.tf.outputs.bucket }}" --delete
 
       - name: Invalidate CloudFront Cache
-        run: aws cloudfront create-invalidation --distribution-id "${{ steps.ssm.outputs.distribution }}" --paths "/*"
+        run: aws cloudfront create-invalidation --distribution-id "${{ steps.tf.outputs.distribution }}" --paths "/*"
