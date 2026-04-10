@@ -18,3 +18,9 @@ variable "web_acl_id" {
   type        = string
   default     = ""
 }
+
+variable "redirect_from" {
+  description = "Optional domain to 301-redirect to domain_name (e.g. www.example.com → example.com). Leave empty to disable."
+  type        = string
+  default     = ""
+}
