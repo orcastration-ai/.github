@@ -22,6 +22,10 @@ on:
         required: false
         type: string
         default: "pnpm build"
+    secrets:
+      ORCA_PACKAGES_READ:
+        description: "PAT with read:packages scope for GitHub Packages"
+        required: false
 
 permissions:
   id-token: write
@@ -60,7 +64,7 @@ jobs:
       - name: Install Dependencies
         run: pnpm install --frozen-lockfile
         env:
-          NODE_AUTH_TOKEN: ${{ github.token }}
+          NODE_AUTH_TOKEN: ${{ secrets.ORCA_PACKAGES_READ || github.token }}
 
       - name: Build
         run: ${{ inputs.build-command }}
@@ -139,7 +143,7 @@ jobs:
       - name: Install Dependencies
         run: pnpm install --frozen-lockfile
         env:
-          NODE_AUTH_TOKEN: ${{ github.token }}
+          NODE_AUTH_TOKEN: ${{ secrets.ORCA_PACKAGES_READ || github.token }}
 
       - name: Build
         run: ${{ inputs.build-command }}

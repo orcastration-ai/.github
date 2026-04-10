@@ -33,6 +33,10 @@ on:
         required: false
         type: string
         default: ""
+    secrets:
+      ORCA_PACKAGES_READ:
+        description: "PAT with read:packages scope for GitHub Packages"
+        required: false
 
 permissions:
   id-token: write
@@ -60,7 +64,7 @@ jobs:
           registry-url: https://npm.pkg.github.com
       - run: pnpm install --frozen-lockfile
         env:
-          NODE_AUTH_TOKEN: ${{ github.token }}
+          NODE_AUTH_TOKEN: ${{ secrets.ORCA_PACKAGES_READ || github.token }}
       - run: ${{ inputs.lint-command }}
 
   test:
@@ -78,7 +82,7 @@ jobs:
           registry-url: https://npm.pkg.github.com
       - run: pnpm install --frozen-lockfile
         env:
-          NODE_AUTH_TOKEN: ${{ github.token }}
+          NODE_AUTH_TOKEN: ${{ secrets.ORCA_PACKAGES_READ || github.token }}
       - run: ${{ inputs.test-command }}
 
   build:
@@ -97,7 +101,7 @@ jobs:
           registry-url: https://npm.pkg.github.com
       - run: pnpm install --frozen-lockfile
         env:
-          NODE_AUTH_TOKEN: ${{ github.token }}
+          NODE_AUTH_TOKEN: ${{ secrets.ORCA_PACKAGES_READ || github.token }}
       - run: ${{ inputs.build-command }}
 
   validate:
