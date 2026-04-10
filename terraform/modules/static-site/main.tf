@@ -2,6 +2,7 @@
 
 resource "aws_s3_bucket" "site" {
   bucket_prefix = "${replace(var.domain_name, ".", "-")}-"
+  force_destroy = true
 }
 
 resource "aws_s3_bucket_public_access_block" "site" {
@@ -36,8 +37,9 @@ resource "aws_s3_bucket_policy" "site" {
 # --- ACM Certificate ---
 
 resource "aws_acm_certificate" "site" {
-  domain_name       = var.domain_name
-  validation_method = "DNS"
+  domain_name               = var.domain_name
+  subject_alternative_names = var.redirect_from != "" ? [var.redirect_from] : []
+  validation_method         = "DNS"
 
   lifecycle {
     create_before_destroy = true
@@ -76,7 +78,30 @@ resource "aws_cloudfront_function" "rewrite" {
   runtime = "cloudfront-js-2.0"
   publish = true
 
-  code = <<-JS
+  code = var.redirect_from != "" ? <<-JS
+    function handler(event) {
+      var request = event.request;
+      var host = request.headers.host.value;
+      var uri = request.uri;
+
+      if (host === '${var.redirect_from}') {
+        return {
+          statusCode: 301,
+          statusDescription: 'Moved Permanently',
+          headers: { location: { value: 'https://${var.domain_name}' + uri } }
+        };
+      }
+
+      if (uri.endsWith('/')) {
+        request.uri += 'index.html';
+      } else if (!uri.includes('.')) {
+        request.uri += '/index.html';
+      }
+
+      return request;
+    }
+  JS
+  : <<-JS
     function handler(event) {
       var request = event.request;
       var uri = request.uri;
@@ -104,7 +129,7 @@ resource "aws_cloudfront_origin_access_control" "site" {
 resource "aws_cloudfront_distribution" "site" {
   enabled             = true
   default_root_object = "index.html"
-  aliases             = [var.domain_name]
+  aliases             = var.redirect_from != "" ? [var.domain_name, var.redirect_from] : [var.domain_name]
   price_class         = "PriceClass_100"
   http_version        = "http2and3"
   is_ipv6_enabled     = true
@@ -186,6 +211,34 @@ resource "aws_route53_record" "site_a" {
 resource "aws_route53_record" "site_aaaa" {
   zone_id = var.zone_id
   name    = var.domain_name
+  type    = "AAAA"
+
+  alias {
+    name                   = aws_cloudfront_distribution.site.domain_name
+    zone_id                = aws_cloudfront_distribution.site.hosted_zone_id
+    evaluate_target_health = false
+  }
+}
+
+# --- Redirect domain DNS (optional) ---
+
+resource "aws_route53_record" "redirect_a" {
+  count   = var.redirect_from != "" ? 1 : 0
+  zone_id = var.zone_id
+  name    = var.redirect_from
+  type    = "A"
+
+  alias {
+    name                   = aws_cloudfront_distribution.site.domain_name
+    zone_id                = aws_cloudfront_distribution.site.hosted_zone_id
+    evaluate_target_health = false
+  }
+}
+
+resource "aws_route53_record" "redirect_aaaa" {
+  count   = var.redirect_from != "" ? 1 : 0
+  zone_id = var.zone_id
+  name    = var.redirect_from
   type    = "AAAA"
 
   alias {
