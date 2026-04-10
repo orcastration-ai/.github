@@ -27,7 +27,7 @@ resource "aws_s3_bucket_policy" "site" {
       Resource  = "${aws_s3_bucket.site.arn}/*"
       Condition = {
         StringEquals = {
-          "AWS:SourceArn" = aws_cloudfront_distribution.site.arn
+          "aws:SourceArn" = aws_cloudfront_distribution.site.arn
         }
       }
     }]
@@ -95,7 +95,13 @@ resource "aws_cloudfront_function" "rewrite" {
       if (uri.endsWith('/')) {
         request.uri += 'index.html';
       } else if (!uri.includes('.')) {
+        %{if var.spa_mode}
+        // SPA mode: let extensionless paths pass through to S3.
+        // S3 will 403, CloudFront error response serves /index.html,
+        // and the client-side router handles the route.
+        %{else}
         request.uri += '/index.html';
+        %{endif}
       }
 
       return request;
@@ -152,19 +158,20 @@ resource "aws_cloudfront_distribution" "site" {
     }
   }
 
-  # Serve custom 404 page if it exists; fall back gracefully otherwise.
+  # SPA mode: serve /index.html with 200 for unknown routes (client-side routing).
+  # Standard mode: serve /404.html with 404 for unknown routes.
   custom_error_response {
     error_code            = 404
-    response_code         = 404
-    response_page_path    = "/404.html"
-    error_caching_min_ttl = 60
+    response_code         = var.spa_mode ? 200 : 404
+    response_page_path    = var.spa_mode ? "/index.html" : "/404.html"
+    error_caching_min_ttl = var.spa_mode ? 0 : 60
   }
 
   custom_error_response {
     error_code            = 403
-    response_code         = 404
-    response_page_path    = "/404.html"
-    error_caching_min_ttl = 60
+    response_code         = var.spa_mode ? 200 : 404
+    response_page_path    = var.spa_mode ? "/index.html" : "/404.html"
+    error_caching_min_ttl = var.spa_mode ? 0 : 60
   }
 
   restrictions {

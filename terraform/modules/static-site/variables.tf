@@ -24,3 +24,9 @@ variable "redirect_from" {
   type        = string
   default     = ""
 }
+
+variable "spa_mode" {
+  description = "Serve /index.html with 200 for unknown routes (enables client-side SPA routing). When false, unknown routes return /404.html with 404."
+  type        = bool
+  default     = false
+}
