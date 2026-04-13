@@ -121,7 +121,7 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Configure Git for private modules
-        run: git config --global url."https://x-access-token:${{ github.token }}@github.com/".insteadOf "https://github.com/"
+        run: git config --global url."https://x-access-token:${{ secrets.ORCA_PACKAGES_READ || github.token }}@github.com/".insteadOf "https://github.com/"
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v4
